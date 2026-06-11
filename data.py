@@ -1,26 +1,43 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
+import plotly.express as px
+
+# =========================
+# CONFIG
+# =========================
+st.set_page_config(
+    page_title="🔥 Data Dashboard",
+    layout="wide"
+)
 
 st.title("🔥 Flexible Data Dashboard")
 
-# Upload file
+# =========================
+# UPLOAD FILE
+# =========================
 uploaded_file = st.file_uploader("Upload file CSV kamu", type=["csv"])
 
 if uploaded_file is not None:
-    # Load data
-    df = pd.read_csv(uploaded_file, encoding='latin1', on_bad_lines='skip')
 
-    # Rapihin kolom
+    df = pd.read_csv(uploaded_file, encoding='latin1', on_bad_lines='skip')
     df.columns = df.columns.str.strip()
 
     st.subheader("📄 Preview Data")
-    st.write(df.head())
+    st.dataframe(df.head(), use_container_width=True)
 
-    # Pilih kolom
+    # =========================
+    # VALIDASI KOLOM
+    # =========================
     numeric_cols = df.select_dtypes(include='number').columns
     all_cols = df.columns
 
+    if len(numeric_cols) == 0:
+        st.error("❌ Tidak ada kolom numerik di data")
+        st.stop()
+
+    # =========================
+    # PILIH KOLOM
+    # =========================
     sales_col = st.selectbox("Pilih kolom angka (Sales)", numeric_cols)
     category_col = st.selectbox("Pilih kolom kategori", all_cols)
     product_col = st.selectbox("Pilih kolom produk", all_cols)
@@ -31,34 +48,33 @@ if uploaded_file is not None:
     st.subheader("🎯 Filter Data")
 
     selected_category = st.multiselect(
-        "Pilih kategori (opsional)",
-        options=df[category_col].unique(),
-        default=df[category_col].unique()
+        "Pilih kategori",
+        options=df[category_col].dropna().unique(),
+        default=df[category_col].dropna().unique()
     )
 
     df_filtered = df[df[category_col].isin(selected_category)]
 
+    if df_filtered.empty:
+        st.warning("⚠️ Data kosong setelah filter")
+        st.stop()
+
     # =========================
-    # METRIC
+    # METRICS
     # =========================
     st.subheader("📊 Ringkasan")
 
-    total_sales = df_filtered[sales_col].sum()
-    avg_sales = df_filtered[sales_col].mean()
-    count_data = df_filtered.shape[0]
-
     col1, col2, col3 = st.columns(3)
-    col1.metric("Total", f"{total_sales:,.2f}")
-    col2.metric("Rata-rata", f"{avg_sales:,.2f}")
-    col3.metric("Jumlah Data", count_data)
+
+    col1.metric("Total", f"{df_filtered[sales_col].sum():,.2f}")
+    col2.metric("Rata-rata", f"{df_filtered[sales_col].mean():,.2f}")
+    col3.metric("Jumlah Data", df_filtered.shape[0])
 
     # =========================
     # BAR CHART
     # =========================
-    import plotly.express as px
-    
     st.subheader("📊 Sales by Category")
-    
+
     category_sales = (
         df_filtered.groupby(category_col)[sales_col]
         .sum()
@@ -66,7 +82,7 @@ if uploaded_file is not None:
         .head(10)
         .reset_index()
     )
-    
+
     fig_bar = px.bar(
         category_sales,
         x=sales_col,
@@ -74,43 +90,42 @@ if uploaded_file is not None:
         orientation='h',
         title="Top 10 Category Sales",
     )
-    
+
     st.plotly_chart(fig_bar, use_container_width=True)
 
     # =========================
-    # PIE CHART (FIXED 🔥)
+    # PIE CHART
     # =========================
     st.subheader("🥧 Distribusi Data")
-    
+
     category_sales_full = (
         df_filtered.groupby(category_col)[sales_col]
         .sum()
         .sort_values(ascending=False)
         .reset_index()
     )
-    
-    # Top 5 + Others
+
     top_n = 5
-    top_data = category_sales_full.head(top_n)
-    
-    others_value = category_sales_full[sales_col].iloc[top_n:].sum()
-    
-    if others_value > 0:
-        top_data.loc[len(top_data)] = ["Others", others_value]
-    
+    top_data = category_sales_full.head(top_n).copy()
+
+    others = category_sales_full[sales_col].iloc[top_n:].sum()
+
+    if others > 0:
+        top_data.loc[len(top_data)] = ["Others", others]
+
     fig_pie = px.pie(
         top_data,
         names=category_col,
         values=sales_col,
         title="Top Categories Distribution",
     )
-    
+
     fig_pie.update_traces(textinfo='percent+label')
-    
+
     st.plotly_chart(fig_pie, use_container_width=True)
 
     # =========================
-    # TOP 5
+    # TOP 5 PRODUCT
     # =========================
     st.subheader("🏆 Top 5 Data")
 
@@ -119,9 +134,10 @@ if uploaded_file is not None:
         .sum()
         .sort_values(ascending=False)
         .head(5)
+        .reset_index()
     )
 
-    st.write(top_products)
+    st.dataframe(top_products, use_container_width=True)
 
     # =========================
     # DOWNLOAD
@@ -138,4 +154,4 @@ if uploaded_file is not None:
     )
 
 else:
-    st.info("Upload file CSV")
+    st.info("👆 Upload file CSV untuk mulai")
