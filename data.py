@@ -1,221 +1,85 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
+import matplotlib.pyplot as plt
 
-# =====================================
+st.title("🔥 Flexible Data Dashboard")
 
-# CONFIG
-
-# =====================================
-
-st.set_page_config(
-page_title="Flexible Data Dashboard",
-page_icon="📊",
-layout="wide"
-)
-
-st.title("📊 Flexible Data Dashboard")
-st.markdown("Upload CSV dan analisis data secara interaktif")
-
-# =====================================
-
-# UPLOAD FILE
-
-# =====================================
-
-uploaded_file = st.file_uploader(
-"Upload file CSV",
-type=["csv"]
-)
+# Upload file
+uploaded_file = st.file_uploader("Upload file CSV kamu", type=["csv"])
 
 if uploaded_file is not None:
+    # Load data
+    df = pd.read_csv(uploaded_file, encoding='latin1', on_bad_lines='skip')
 
-```
-# Load data
-df = pd.read_csv(
-    uploaded_file,
-    encoding="latin1",
-    on_bad_lines="skip"
-)
+    # Rapihin kolom
+    df.columns = df.columns.str.strip()
 
-df.columns = df.columns.str.strip()
+    st.subheader("📄 Preview Data")
+    st.write(df.head())
 
-# =====================================
-# PREVIEW
-# =====================================
-st.subheader("📄 Preview Data")
-st.dataframe(df.head())
+    # Pilih kolom
+    numeric_cols = df.select_dtypes(include='number').columns
+    all_cols = df.columns
 
-# =====================================
-# PILIH KOLOM
-# =====================================
-numeric_cols = df.select_dtypes(include="number").columns.tolist()
+    sales_col = st.selectbox("Pilih kolom angka (Sales)", numeric_cols)
+    category_col = st.selectbox("Pilih kolom kategori", all_cols)
+    product_col = st.selectbox("Pilih kolom produk", all_cols)
 
-if len(numeric_cols) == 0:
-    st.error("Tidak ada kolom numerik pada dataset")
-    st.stop()
+    # FILTER
+    st.subheader("🎯 Filter Data")
+    selected_category = st.multiselect(
+        "Pilih kategori (opsional)",
+        options=df[category_col].unique(),
+        default=df[category_col].unique()
+    )
 
-all_cols = df.columns.tolist()
+    df_filtered = df[df[category_col].isin(selected_category)]
 
-st.sidebar.header("⚙️ Pengaturan")
+    # METRIC
+    st.subheader("📊 Ringkasan")
+    total_sales = df_filtered[sales_col].sum()
+    avg_sales = df_filtered[sales_col].mean()
+    count_data = df_filtered.shape[0]
 
-sales_col = st.sidebar.selectbox(
-    "Kolom Numerik",
-    numeric_cols
-)
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Total", f"{total_sales:,.2f}")
+    col2.metric("Rata-rata", f"{avg_sales:,.2f}")
+    col3.metric("Jumlah Data", count_data)
 
-category_col = st.sidebar.selectbox(
-    "Kolom Kategori",
-    all_cols
-)
-
-product_col = st.sidebar.selectbox(
-    "Kolom Produk",
-    all_cols
-)
-
-# =====================================
-# FILTER
-# =====================================
-st.sidebar.subheader("🎯 Filter")
-
-selected_category = st.sidebar.multiselect(
-    "Pilih Kategori",
-    options=df[category_col].dropna().unique(),
-    default=df[category_col].dropna().unique()
-)
-
-df_filtered = df[
-    df[category_col].isin(selected_category)
-]
-
-# =====================================
-# KPI
-# =====================================
-total_sales = df_filtered[sales_col].sum()
-avg_sales = df_filtered[sales_col].mean()
-count_data = len(df_filtered)
-
-st.subheader("📈 Ringkasan")
-
-col1, col2, col3 = st.columns(3)
-
-col1.metric(
-    "💰 Total",
-    f"{total_sales:,.2f}"
-)
-
-col2.metric(
-    "📊 Rata-rata",
-    f"{avg_sales:,.2f}"
-)
-
-col3.metric(
-    "📦 Jumlah Data",
-    count_data
-)
-
-# =====================================
-# SALES BY CATEGORY
-# =====================================
-category_sales = (
-    df_filtered.groupby(category_col)[sales_col]
-    .sum()
-    .sort_values(ascending=False)
-    .head(15)
-    .reset_index()
-)
-
-col_left, col_right = st.columns(2)
-
-with col_left:
-
+    # BAR CHART
     st.subheader("📊 Sales by Category")
+    category_sales = df_filtered.groupby(category_col)[sales_col].sum()
 
-    fig_bar = px.bar(
-        category_sales,
-        x=category_col,
-        y=sales_col,
-        text_auto=".2s"
+    fig1, ax1 = plt.subplots()
+    category_sales.plot(kind='bar', ax=ax1)
+    st.pyplot(fig1)
+
+    # PIE CHART
+    st.subheader("🥧 Distribusi Data")
+    fig2, ax2 = plt.subplots()
+    category_sales.plot(kind='pie', autopct='%1.1f%%', ax=ax2)
+    ax2.set_ylabel('')
+    st.pyplot(fig2)
+
+    # TOP 5
+    st.subheader("🏆 Top 5 Data")
+    top_products = (
+        df_filtered.groupby(product_col)[sales_col]
+        .sum()
+        .sort_values(ascending=False)
+        .head(5)
     )
+    st.write(top_products)
 
-    st.plotly_chart(
-        fig_bar,
-        use_container_width=True
+    # DOWNLOAD
+    st.subheader("⬇️ Download Data")
+    csv = df_filtered.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label="Download data hasil filter",
+        data=csv,
+        file_name='filtered_data.csv',
+        mime='text/csv',
     )
-
-with col_right:
-
-    st.subheader("🥧 Distribusi Category")
-
-    fig_pie = px.pie(
-        category_sales,
-        names=category_col,
-        values=sales_col
-    )
-
-    st.plotly_chart(
-        fig_pie,
-        use_container_width=True
-    )
-
-# =====================================
-# TOP PRODUK
-# =====================================
-st.subheader("🏆 Top 10 Produk")
-
-top_products = (
-    df_filtered.groupby(product_col)[sales_col]
-    .sum()
-    .sort_values(ascending=False)
-    .head(10)
-    .reset_index()
-)
-
-st.dataframe(
-    top_products,
-    use_container_width=True
-)
-
-# =====================================
-# STATISTIK
-# =====================================
-st.subheader("📈 Statistik Deskriptif")
-
-st.dataframe(
-    df_filtered.describe(),
-    use_container_width=True
-)
-
-# =====================================
-# DATA FILTER
-# =====================================
-st.subheader("📋 Data Setelah Filter")
-
-st.dataframe(
-    df_filtered,
-    use_container_width=True
-)
-
-# =====================================
-# DOWNLOAD
-# =====================================
-csv = df_filtered.to_csv(
-    index=False
-).encode("utf-8")
-
-st.download_button(
-    label="⬇️ Download Data Filter",
-    data=csv,
-    file_name="filtered_data.csv",
-    mime="text/csv"
-)
-```
 
 else:
-
-```
-st.info(
-    "👆 Upload file CSV untuk mulai analisis"
-)
-```
+    st.info("Upload file CSV dulu bro 🚀")
