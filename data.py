@@ -55,56 +55,59 @@ if uploaded_file is not None:
     # =========================
     # BAR CHART
     # =========================
+    import plotly.express as px
+    
     st.subheader("📊 Sales by Category")
-
+    
     category_sales = (
         df_filtered.groupby(category_col)[sales_col]
         .sum()
         .sort_values(ascending=False)
         .head(10)
+        .reset_index()
     )
-
-    fig1, ax1 = plt.subplots()
-    category_sales.plot(kind='barh', ax=ax1)
-
-    ax1.set_xlabel("Sales")
-    ax1.set_ylabel(category_col)
-
-    st.pyplot(fig1)
+    
+    fig_bar = px.bar(
+        category_sales,
+        x=sales_col,
+        y=category_col,
+        orientation='h',
+        title="Top 10 Category Sales",
+    )
+    
+    st.plotly_chart(fig_bar, use_container_width=True)
 
     # =========================
     # PIE CHART (FIXED 🔥)
     # =========================
     st.subheader("🥧 Distribusi Data")
-
+    
     category_sales_full = (
         df_filtered.groupby(category_col)[sales_col]
         .sum()
         .sort_values(ascending=False)
+        .reset_index()
     )
-
+    
     # Top 5 + Others
     top_n = 5
     top_data = category_sales_full.head(top_n)
-    others = category_sales_full.iloc[top_n:].sum()
-
-    if others > 0:
-        top_data["Others"] = others
-
-    fig2, ax2 = plt.subplots()
-
-    ax2.pie(
+    
+    others_value = category_sales_full[sales_col].iloc[top_n:].sum()
+    
+    if others_value > 0:
+        top_data.loc[len(top_data)] = ["Others", others_value]
+    
+    fig_pie = px.pie(
         top_data,
-        labels=None,  # biar ga numpuk
-        autopct='%1.1f%%',
-        startangle=90
+        names=category_col,
+        values=sales_col,
+        title="Top Categories Distribution",
     )
-
-    ax2.legend(top_data.index, loc="best")
-    ax2.set_title("Top Categories Distribution")
-    ax2.axis('equal')
-
-    st.pyplot(fig2)
+    
+    fig_pie.update_traces(textinfo='percent+label')
+    
+    st.plotly_chart(fig_pie, use_container_width=True)
 
     # =========================
     # TOP 5
