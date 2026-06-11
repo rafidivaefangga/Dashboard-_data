@@ -83,27 +83,27 @@ if uploaded_file is not None:
         .sort_values(ascending=False)
     )
 
+    # Top 5 + Others
     top_n = 5
     top_data = category_sales_full.head(top_n)
-    other = category_sales_full.iloc[top_n:].sum()
+    others = category_sales_full.iloc[top_n:].sum()
 
-    final_data = top_data.copy()
-    if other > 0:
-        final_data["Other"] = other
+    if others > 0:
+        top_data["Others"] = others
 
     fig2, ax2 = plt.subplots()
 
-    final_data.plot(
-        kind='pie',
+    ax2.pie(
+        top_data,
+        labels=None,  # biar ga numpuk
         autopct='%1.1f%%',
-        startangle=90,
-        ax=ax2
+        startangle=90
     )
 
-    ax2.set_ylabel('')
-    ax2.set_title("Top Categories")
+    ax2.legend(top_data.index, loc="best")
+    ax2.set_title("Top Categories Distribution")
+    ax2.axis('equal')
 
-    plt.tight_layout()
     st.pyplot(fig2)
 
     # =========================
