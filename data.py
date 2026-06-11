@@ -47,19 +47,42 @@ if uploaded_file is not None:
     col3.metric("Jumlah Data", count_data)
 
     # BAR CHART
-    st.subheader("📊 Sales by Category")
-    category_sales = df_filtered.groupby(category_col)[sales_col].sum()
+st.subheader("📊 Sales by Category")
 
-    fig1, ax1 = plt.subplots()
-    category_sales.plot(kind='bar', ax=ax1)
-    st.pyplot(fig1)
+# Ambil top 10 biar rapi
+category_sales = (
+    df_filtered.groupby(category_col)[sales_col]
+    .sum()
+    .sort_values(ascending=False)
+    .head(10)
+)
+
+fig1, ax1 = plt.subplots()
+category_sales.plot(kind='barh', ax=ax1)
+
+ax1.set_xlabel("Sales")
+ax1.set_ylabel(category_col)
+
+st.pyplot(fig1)
 
     # PIE CHART
-    st.subheader("🥧 Distribusi Data")
-    fig2, ax2 = plt.subplots()
-    category_sales.plot(kind='pie', autopct='%1.1f%%', ax=ax2)
-    ax2.set_ylabel('')
-    st.pyplot(fig2)
+st.subheader("🥧 Distribusi Data")
+
+fig2, ax2 = plt.subplots()
+
+final_data.plot(
+    kind='pie',
+    autopct='%1.1f%%',
+    startangle=90,
+    ax=ax2
+)
+
+ax2.set_ylabel('')  # hilangkan label y
+ax2.set_title("Top Categories")
+
+plt.tight_layout()
+
+st.pyplot(fig2)
 
     # TOP 5
     st.subheader("🏆 Top 5 Data")
@@ -82,4 +105,4 @@ if uploaded_file is not None:
     )
 
 else:
-    st.info("Upload file CSV dulu bro 🚀")
+    st.info("Upload file CSV")
